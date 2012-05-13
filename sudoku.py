@@ -223,15 +223,13 @@ def highlight_cell(row=-1,col=-1,H=None,c='y'):
   y2 = 8 - row + .45
   return pylab.plot([x1,x2,x2,x1,x1], [y1,y1,y2,y2,y1],c,lw=2)
 
-def mark_hypothesis_cell(row,col,H):
+def mark_hypothesis_cells(rows,cols,H):
   if H is not None:
     for h in H:
       h.remove()
-  x1 = col - .45
-  x2 = col + .45
-  y1 = 8 - row -.45
-  y2 = 8 - row + .45
-  return pylab.plot([x1,x2,x2,x1,x1], [y1,y1,y2,y2,y1],'y',lw=4)
+  x = pylab.array(cols)
+  y = 8 - pylab.array(rows)
+  return pylab.plot(x,y,'yo',ms=36,mfc=None)
 
 def update_grid_plot(grid,row=-1,col=-1,txt=None, H=None,c='y'):
   txt = show_grid(grid,txt)
@@ -279,6 +277,8 @@ if __name__ == "__main__":
   solved.
   """
   hyp = False #Just used to indicate if we are in a hypothesis branch for plotting
+  h_rows = []
+  h_cols = []
   grid_solved = True #We flip this if any one cell is not solved and check it at the end of each sweep
   grid_changed = False
   grid, row, col, cell_changed, cell_solved, cell_invalid, sweep = solve_step(grid)
@@ -288,7 +288,7 @@ if __name__ == "__main__":
     if cell_invalid: c = 'r'
     txt, H = update_grid_plot(grid,row,col,txt, H, c) #Show our handiwork
     if hyp:
-      Hh = mark_hypothesis_cell(h_row, h_col, Hh)
+      Hh = mark_hypothesis_cells(h_rows, h_cols, Hh)
 
     if cell_invalid:
       current_node = next_branch(current_node)
@@ -296,6 +296,8 @@ if __name__ == "__main__":
         break
       grid, row, col, h_row, h_col = hypothesis(current_node)
       hyp = True
+      h_rows.append(h_row)
+      h_cols.append(h_col)
 
     if sweep:
       sweep = False
@@ -305,6 +307,8 @@ if __name__ == "__main__":
         current_node = current_node['children'][0]
         grid, row, col, h_row, h_col = hypothesis(current_node)
         hyp = True
+        h_rows.append(h_row)
+        h_cols.append(h_col)
       else:
         grid_changed = False #Should go for another run
 
