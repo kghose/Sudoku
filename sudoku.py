@@ -223,13 +223,22 @@ def highlight_cell(row=-1,col=-1,H=None,c='y'):
   y2 = 8 - row + .45
   return pylab.plot([x1,x2,x2,x1,x1], [y1,y1,y2,y2,y1],c,lw=2)
 
-def mark_hypothesis_cells(rows,cols,H):
+def mark_hypothesis_cells(current_node, H):
   if H is not None:
     for h in H:
       h.remove()
+
+  rows = []
+  cols = []
+  node = current_node
+  while node['parent'] is not None:
+    rows.append(node['row'])
+    cols.append(node['col'])
+    node = node['parent']
+
   x = pylab.array(cols)
   y = 8 - pylab.array(rows)
-  return pylab.plot(x,y,'yo',ms=36,mfc=None)
+  return pylab.plot(x,y,'yo-',ms=36,mfc=None)
 
 def update_grid_plot(grid,row=-1,col=-1,txt=None, H=None,c='y'):
   txt = show_grid(grid,txt)
@@ -243,7 +252,7 @@ def hypothesis(current_node):
   grid = current_node['grid']
   row = 0
   col = 0
-  return grid, row, col, current_node['row'], current_node['col']
+  return grid, row, col
 
 
 if __name__ == "__main__":
@@ -288,16 +297,14 @@ if __name__ == "__main__":
     if cell_invalid: c = 'r'
     txt, H = update_grid_plot(grid,row,col,txt, H, c) #Show our handiwork
     if hyp:
-      Hh = mark_hypothesis_cells(h_rows, h_cols, Hh)
+      Hh = mark_hypothesis_cells(current_node, Hh)
 
     if cell_invalid:
       current_node = next_branch(current_node)
       if current_node is None: #No solution to this grid
         break
-      grid, row, col, h_row, h_col = hypothesis(current_node)
+      grid, row, col = hypothesis(current_node)
       hyp = True
-      h_rows.append(h_row)
-      h_cols.append(h_col)
 
     if sweep:
       sweep = False
@@ -305,10 +312,8 @@ if __name__ == "__main__":
       if not grid_changed: #At the end of what we can do without branching
         current_node = branch(grid, current_node)
         current_node = current_node['children'][0]
-        grid, row, col, h_row, h_col = hypothesis(current_node)
+        grid, row, col = hypothesis(current_node)
         hyp = True
-        h_rows.append(h_row)
-        h_cols.append(h_col)
       else:
         grid_changed = False #Should go for another run
 
