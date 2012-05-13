@@ -240,12 +240,17 @@ def mark_hypothesis_cells(current_node, H):
   y = 8 - pylab.array(rows)
   return pylab.plot(x,y,'yo-',ms=36,mfc=None)
 
-def update_grid_plot(grid,row=-1,col=-1,txt=None, H=None,c='y'):
+def update_grid_plot(grid, row=-1,col=-1,txt=None,
+                           c='y', H=None,
+                           current_node=None, Hh=None):
   txt = show_grid(grid,txt)
   H = highlight_cell(row,col,H,c)
+  Hh = mark_hypothesis_cells(current_node, Hh)
   pylab.draw()
   pylab.show()
-  return txt,H
+  return txt, H, Hh
+
+
 
 # Utility function for main loop
 def hypothesis(current_node):
@@ -271,7 +276,8 @@ if __name__ == "__main__":
 
   fig = plot_grid_background()
   pylab.ion()
-  txt, H = update_grid_plot(grid)
+  txt = show_grid(grid)
+  H = None
   Hh = None
 
   """The reason for structuring the code as a single loop of single steps
@@ -295,9 +301,7 @@ if __name__ == "__main__":
     c = 'y'
     if grid_changed: c = 'b'
     if cell_invalid: c = 'r'
-    txt, H = update_grid_plot(grid,row,col,txt, H, c) #Show our handiwork
-    if hyp:
-      Hh = mark_hypothesis_cells(current_node, Hh)
+    txt, H, Hh = update_grid_plot(grid,row,col,txt,c,H,current_node,Hh) #Show our handiwork
 
     if cell_invalid:
       current_node = next_branch(current_node)
