@@ -103,6 +103,24 @@ def reduce_cell(o_grid, row, col):
 
   return grid, changed, invalid, solved
 
+def eliminate_this(grid, row, col, value):
+  """Remove the given value from the cell if possible. If the cell is solved
+  say so."""
+  changed = False
+  invalid = False
+  solved = False
+  grid = copy.deepcopy(o_grid)
+  ol = len(grid[row][col])
+  if value in grid[row][col]:
+    grid[row][col].remove(value)
+  nl = len(grid[row][col])
+  if nl == 0: invalid = True
+  if nl == 1:
+    solved = True
+    if ol > 1: changed = True #We just solved it
+
+  return grid, changed, invalid, solved
+
 
 def branch(cg, current_node):
   """Simple minded to start with."""
