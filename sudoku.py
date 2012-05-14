@@ -25,7 +25,6 @@ import copy, pylab, time
 # Initialization ---------------------------------------------------------------
 def example_grid():
   grid = [
-    #[[5], [3], range(1,10), range(1,10), [7], range(1,10), range(1,10), range(1,10), range(1,10)],
     [[5], [3], range(1,10), range(1,10), [7], range(1,10), range(1,10), range(1,10), range(1,10)],
     [[6], range(1,10), range(1,10), [1], [9], [5], range(1,10), range(1,10), range(1,10)],
     [range(1,10), [9], [8], range(1,10), range(1,10), range(1,10), range(1,10), [6], range(1,10)],
@@ -269,7 +268,7 @@ if __name__ == "__main__":
 
   #grid = empty_grid()
   #grid = example_grid()
-  grid = load_grid()
+  grid = load_grid(fname='ex2.txt')
 
   parent_node = {
     'grid': grid,
