@@ -1,9 +1,4 @@
 """
-
-"""
-import copy, pylab, time
-
-"""
 Data structures:
 
 grid - sudoku grid is a 9x9 list of lists of lists. The innermost list is the
@@ -17,8 +12,15 @@ history - every change to the grid is put in the history. When we reach an
 invalid solution and pick the next branch we actually insert a backtrack into
 the history because this looks nice visually.
 
-"""
+To create animation with good definition:
 
+ffmpeg  -i test%06d.png -vcodec libx264 -x264opts keyint=123:min-keyint=20 -an sudoku.mkv
+
+
+"""
+import matplotlib
+matplotlib.use("Agg")
+import copy, pylab, time
 
 # Initialization ---------------------------------------------------------------
 def example_grid():
@@ -167,7 +169,7 @@ def solve_step(grid, row=0, col=0):
 
 # Display ----------------------------------------------------------------------
 def plot_grid_background():
-  fig = pylab.figure(figsize=(8,8))
+  fig = pylab.figure(figsize=(4,4))
   fig.subplots_adjust(left=0.0,bottom=0.0,right=1.0,top=1.0,wspace=0.0,hspace=0.0)
   ax = fig.add_subplot(111)
   ax.set_xlim([-.55,8.55])
@@ -238,16 +240,19 @@ def mark_hypothesis_cells(current_node, H):
 
   x = pylab.array(cols)
   y = 8 - pylab.array(rows)
-  return pylab.plot(x,y,'yo-',ms=36,mfc=None)
+  return pylab.plot(x,y,'yo-',ms=24,mfc=None)
 
 def update_grid_plot(grid, row=-1,col=-1,txt=None,
                            c='y', H=None,
-                           current_node=None, Hh=None):
+                           current_node=None, Hh=None,
+                     base_name = 'test', frame_no = 0):
   txt = show_grid(grid,txt)
   H = highlight_cell(row,col,H,c)
   Hh = mark_hypothesis_cells(current_node, Hh)
   pylab.draw()
   pylab.show()
+  fname = "{bn}{fn:06d}.png".format(bn=base_name, fn=frame_no)
+  pylab.savefig(fname)
   return txt, H, Hh
 
 
@@ -291,6 +296,7 @@ if __name__ == "__main__":
   sweep and the 'solved' flag is still set, indicating that all cells have been
   solved.
   """
+  frame_no = 0
   hyp = False #Just used to indicate if we are in a hypothesis branch for plotting
   h_rows = []
   h_cols = []
@@ -301,7 +307,11 @@ if __name__ == "__main__":
     c = 'y'
     if grid_changed: c = 'b'
     if cell_invalid: c = 'r'
-    txt, H, Hh = update_grid_plot(grid,row,col,txt,c,H,current_node,Hh) #Show our handiwork
+    txt, H, Hh = update_grid_plot(grid=grid,
+                              row=row,col=col,txt=txt,c=c,H=H,
+                              current_node=current_node,Hh=Hh,
+                              frame_no = frame_no) #Show our handiwork
+    frame_no += 1
 
     if cell_invalid:
       current_node = next_branch(current_node)
