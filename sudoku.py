@@ -18,8 +18,8 @@ ffmpeg  -i test%06d.png -vcodec libx264 -x264opts keyint=123:min-keyint=20 -an s
 
 
 """
-import matplotlib
-matplotlib.use("Agg")
+#import matplotlib
+#matplotlib.use("Agg")
 import copy, pylab, time
 
 # Initialization ---------------------------------------------------------------
@@ -150,6 +150,14 @@ def next_branch(current_node):
     parent = parent['parent']
   return node
 
+def flood_fill(row, col, path=[]):
+  """If a cell has been filled in at row,col use this to add the cells to be
+  checked nd then use a flood fill to add to the current path."""
+
+
+
+
+
 def solve_step(grid, row=0, col=0):
   """
   Start the solver with row=col=0, changed=False, solved=True
@@ -251,7 +259,7 @@ def update_grid_plot(grid, row=-1,col=-1,txt=None,
   pylab.draw()
   pylab.show()
   fname = "{bn}{fn:06d}.png".format(bn=base_name, fn=frame_no)
-  pylab.savefig(fname)
+  #pylab.savefig(fname)
   return txt, H, Hh
 
 
@@ -266,9 +274,9 @@ def hypothesis(current_node):
 
 if __name__ == "__main__":
 
-  #grid = empty_grid()
+  grid = empty_grid()
   #grid = example_grid()
-  grid = load_grid(fname='ex2.txt')
+  #grid = load_grid(fname='ex2.txt')
 
   parent_node = {
     'grid': grid,
@@ -335,5 +343,4 @@ if __name__ == "__main__":
     if cell_changed: grid_changed = True
     if not cell_solved: grid_solved = False
 
-    time.sleep(.1)#Allows us keyboard interrupt if we want
-
+    time.sleep(.1)
