@@ -32,8 +32,8 @@ ffmpeg  -i test%06d.png -vcodec libx264 -x264opts keyint=123:min-keyint=20 -an s
 
 
 """
-#import matplotlib
-#matplotlib.use("Agg")
+import matplotlib
+matplotlib.use("Agg")
 import copy, pylab, time
 
 # Initialization ---------------------------------------------------------------
@@ -160,15 +160,16 @@ def flood_fill(grid, row, col, value, search_path=[]):
       if r != row and c != col:
         new_path.append((r,c,value))
 
-  search_path += new_path
+  search_path = new_path + search_path
 
-  new_search_path = []
-  for n in xrange(len(search_path)):
-    r,c,v = search_path[n]
-    if len(grid[r][c]) > 1:
-      new_search_path.append(search_path[n])
-
-  return new_search_path
+#  new_search_path = []
+#  for n in xrange(len(search_path)):
+#    r,c,v = search_path[n]
+#    if len(grid[r][c]) > 1:
+#      new_search_path.append(search_path[n])
+#
+#  return new_search_path
+  return search_path
 
 def solve_step(grid, search_path=None):
   row,col,value = search_path.pop(0)
@@ -182,7 +183,7 @@ def solve_step(grid, search_path=None):
   else:
     sweep = False
 
-  return grid, row, col, search_path, changed, invalid, solved, sweep
+  return grid, search_path, changed, invalid, solved, sweep
 
 # Display ----------------------------------------------------------------------
 def plot_grid_background():
@@ -232,15 +233,19 @@ def show_grid(grid, txt=None):
       txt += show_cell(grid, r, c)
   return txt
 
-def highlight_cell(row=-1,col=-1,H=None,c='y'):
+def highlight_cell(row=-1,col=-1,value=0,H=None,c='y'):
+#  if H is not None:
+#    for h in H:
+#      h.remove()
+#  x1 = col - .45
+#  x2 = col + .45
+#  y1 = 8 - row -.45
+#  y2 = 8 - row + .45
+#  H0 = pylab.plot([x1,x2,x2,x1,x1], [y1,y1,y2,y2,y1],c,lw=2)
   if H is not None:
-    for h in H:
-      h.remove()
-  x1 = col - .45
-  x2 = col + .45
-  y1 = 8 - row -.45
-  y2 = 8 - row + .45
-  return pylab.plot([x1,x2,x2,x1,x1], [y1,y1,y2,y2,y1],c,lw=2)
+    H.remove()
+  H1 = pylab.text(col+.1, 8-row+.1,value,fontsize=24, horizontalalignment='center', verticalalignment='center',color='gray', weight='heavy')
+  return H1
 
 def mark_hypothesis_cells(current_node, H):
   if H is not None:
@@ -259,17 +264,18 @@ def mark_hypothesis_cells(current_node, H):
   y = 8 - pylab.array(rows)
   return pylab.plot(x,y,'yo-',ms=24,mfc=None)
 
-def update_grid_plot(grid, row=-1,col=-1,txt=None,
-                           c='y', H=None,
-                           current_node=None, Hh=None,
+def update_grid_plot(grid,
+                     row=-1,col=-1,value=0,txt=None,
+                     c='y', H=None,
+                     current_node=None, Hh=None,
                      base_name = 'test', frame_no = 0):
   txt = show_grid(grid,txt)
-  H = highlight_cell(row,col,H,c)
+  H = highlight_cell(row,col,value,H,c)
   Hh = mark_hypothesis_cells(current_node, Hh)
   pylab.draw()
   pylab.show()
   fname = "{bn}{fn:06d}.png".format(bn=base_name, fn=frame_no)
-  #pylab.savefig(fname)
+  pylab.savefig(fname)
   return txt, H, Hh
 
 # Utility functions
@@ -294,8 +300,12 @@ def hypothesis(current_node):
 if __name__ == "__main__":
 
   #grid = empty_grid()
-  grid = example_grid()
-  #grid = load_grid(fname='ex2.txt')
+  #grid = example_grid()
+  #base_name = '/tmp/sudoku/example/example'
+  grid = load_grid(fname='ex1.txt')
+  base_name = '/tmp/sudoku/ex1/ex1'
+  import os
+  os.makedirs('/tmp/sudoku/ex1/')
 
   parent_node = {
     'grid': grid,
@@ -324,21 +334,11 @@ if __name__ == "__main__":
   """
   frame_no = 0
   search_path = initial_flood_fill(grid)
-  grid_solved = True #We flip this if any one cell is not solved and check it at the end of each sweep
+  cell_solved = False
   sweep = False
   grid_changed = False
   cell_invalid = False
-  row = col = 0
-  while not (sweep and grid_solved):
-    c = 'y'
-    if grid_changed: c = 'b'
-    if cell_invalid: c = 'r'
-    txt, H, Hh = update_grid_plot(grid=grid,
-                              row=row,col=col,txt=txt,c=c,H=H,
-                              current_node=current_node,Hh=Hh,
-                              frame_no = frame_no) #Show our handiwork
-    frame_no += 1
-
+  while not (sweep and cell_solved):
     if cell_invalid:
       current_node = next_branch(current_node)
       if current_node is None: #No solution to this grid
@@ -357,10 +357,18 @@ if __name__ == "__main__":
       path_step = 0
       grid_solved = True #In preparation for another run
 
-    grid, row, col, search_path, cell_changed, cell_invalid, cell_solved, sweep =\
+    c = 'y'
+    if grid_changed: c = 'b'
+    if cell_invalid: c = 'r'
+    row,col,value = search_path[0]
+    txt, H, Hh = update_grid_plot(grid=grid,
+      row=row,col=col,value=value,txt=txt,c=c,H=H,
+      current_node=current_node,Hh=Hh,
+      frame_no = frame_no,
+      base_name=base_name) #Show our handiwork
+    frame_no += 1
+
+    grid, search_path, cell_changed, cell_invalid, cell_solved, sweep =\
       solve_step(grid, search_path)
 
-    #if cell_changed: grid_changed = True
-    if not cell_solved: grid_solved = False
-
-    time.sleep(.1)
+#    time.sleep(.1)
