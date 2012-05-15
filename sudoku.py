@@ -5,8 +5,22 @@ grid - sudoku grid is a 9x9 list of lists of lists. The innermost list is the
 candidate solutions to a cell. If there is only one entry then it is a filled
 cell, if there is more then it is an empty cell and those are the possibilities.
 
-branch_stack - a dictionary containing a list of the current branch path and
-lists of the branch grids
+node = {
+  'grid': this_child_grid,
+  'parent': current_node,
+  'row': b_row,
+  'col': b_col,
+  'n': n,
+  'children': list of nodes
+}
+This is a node that makes up the tree of hypotheseses that we test
+
+The search path is made up of list of these
+search_path = {
+  'row': ...,
+  'col': ...,
+  'value':
+}
 
 history - every change to the grid is put in the history. When we reach an
 invalid solution and pick the next branch we actually insert a backtrack into
@@ -53,75 +67,6 @@ def load_grid(fname='ex1.txt'):
   return grid
 
 # Manipulation -----------------------------------------------------------------
-def exact_cover(grid, row, col):
-  to_discard = []
-  #For a given cell go through the row and column looking for other cells that
-  #have a single element. Eliminate that element
-  for c in xrange(9):
-    if c == col:
-      continue
-    if len(grid[row][c]) == 1:
-      to_discard += grid[row][c]
-
-  for r in xrange(9):
-    if r == row:
-      continue
-    if len(grid[r][col]) == 1:
-      to_discard += grid[r][col]
-
-  #Look in the 3x3 subgrid this cell belongs to for similar eliminations
-  r_start = (row/3)*3
-  c_start = (col/3)*3
-  rows = xrange(r_start, r_start+3)
-  cols = xrange(c_start, c_start+3)
-  for r in rows:
-    for c in cols:
-      if r != row or c != col:
-        if len(grid[r][c]) == 1:
-          to_discard += grid[r][c]
-
-  for td in to_discard:
-    if td in grid[row][col]:
-      grid[row][col].remove(td)
-
-  return grid
-
-def reduce_cell(o_grid, row, col):
-  """Given a cell try and reduce the choices using Sudoku rules."""
-  changed = False
-  invalid = False
-  solved = False
-  grid = copy.deepcopy(o_grid)
-  ol = len(grid[row][col])
-  if ol > 1:
-    grid = exact_cover(grid, row, col)
-  nl = len(grid[row][col])
-  if nl == 0: invalid = True
-  if nl == 1:
-    solved = True
-    if ol > 1: changed = True #We just solved it
-
-  return grid, changed, invalid, solved
-
-def eliminate_this(grid, row, col, value):
-  """Remove the given value from the cell if possible. If the cell is solved
-  say so."""
-  changed = False
-  invalid = False
-  solved = False
-  grid = copy.deepcopy(o_grid)
-  ol = len(grid[row][col])
-  if value in grid[row][col]:
-    grid[row][col].remove(value)
-  nl = len(grid[row][col])
-  if nl == 0: invalid = True
-  if nl == 1:
-    solved = True
-    if ol > 1: changed = True #We just solved it
-
-  return grid, changed, invalid, solved
-
-
 def branch(cg, current_node):
   """Simple minded to start with."""
   min_len = 10
@@ -168,29 +113,87 @@ def next_branch(current_node):
     parent = parent['parent']
   return node
 
-def flood_fill(row, col, path=[]):
+def eliminate_this(grid, row, col, value):
+  """Remove the given value from the cell if possible. If the cell is solved
+  say so."""
+  changed = False
+  invalid = False
+  solved = False
+  #grid = copy.deepcopy(o_grid)
+  ol = len(grid[row][col])
+  if value in grid[row][col]:
+    grid[row][col].remove(value)
+  nl = len(grid[row][col])
+  if nl == 0: invalid = True
+  if nl == 1:
+    solved = True
+    if ol > 1: changed = True #We just solved it
+
+  return grid, changed, invalid, solved
+
+
+def flood_fill(row, col, value, search_path=None):
   """If a cell has been filled in at row,col use this to add the cells to be
-  checked nd then use a flood fill to add to the current path."""
+  checked."""
 
+  new_rows = []
+  new_cols = []
 
+  #Knockout the 3x3 subgrid (minus rows and cols which we do below)
+  r_start = (row/3)*3
+  c_start = (col/3)*3
+  rows = xrange(r_start, r_start+3)
+  cols = xrange(c_start, c_start+3)
+  for r in rows:
+    for c in cols:
+      if r != row and c != col:
+        new_rows.append(r)
+        new_cols.append(c)
 
+  #Traverse the row
+  for c in xrange(9):
+    if c == col:
+      continue
+    new_rows.append(row)
+    new_cols.append(c)
 
+  #Traverse the column
+  for r in xrange(9):
+    if r == row:
+      continue
+    new_rows.append(r)
+    new_cols.append(col)
 
-def solve_step(grid, row=0, col=0):
-  """
-  Start the solver with row=col=0, changed=False, solved=True
-  """
-  grid, changed, invalid, solved = reduce_cell(grid, row, col)
-  sweep = False
-  col += 1
-  if col > 8:
-    col = 0
-    row += 1
-  if row > 8: #Finished a sweep
-    row = 0
+  if search_path is None:
+    search_path =  {'rows': [],
+                    'cols': [],
+                    'values': []}
+
+  search_path['rows'] += new_rows
+  search_path['cols'] += new_cols
+  search_path['values'] += [value]*len(new_cols)
+
+  return search_path
+
+def solve_step(grid, path_step=0, search_path=None):
+
+  row = search_path['rows'][path_step]
+  col = search_path['cols'][path_step]
+  value = search_path['values'][path_step]
+
+  grid, changed, invalid, solved = eliminate_this(grid, row, col, value)
+  if changed:#We gotta add to the path (domino effect)
+    search_path = flood_fill(row, col, grid[row][col][0], search_path)
+    print 'Solved', row, col, '(', grid[row][col][0], ')'
+
+  path_step += 1
+  if path_step == len(search_path['rows']):
     sweep = True
+    path_step = 0
+  else:
+    sweep = False
 
-  return grid, row, col, changed, solved, invalid, sweep
+  return grid, path_step, search_path, changed, invalid, solved, sweep
 
 # Display ----------------------------------------------------------------------
 def plot_grid_background():
@@ -280,9 +283,18 @@ def update_grid_plot(grid, row=-1,col=-1,txt=None,
   #pylab.savefig(fname)
   return txt, H, Hh
 
+# Utility functions
+def initial_flood_fill(grid):
+  """Start us off by looking at the solved cells and then floodfilling from them."""
+  search_path = None
+  for r in xrange(9):
+    for c in xrange(9):
+      if len(grid[r][c]) == 1:
+        search_path = flood_fill(r, c, grid[r][c][0], search_path)
+
+  return search_path
 
 
-# Utility function for main loop
 def hypothesis(current_node):
   grid = current_node['grid']
   row = 0
@@ -292,8 +304,8 @@ def hypothesis(current_node):
 
 if __name__ == "__main__":
 
-  grid = empty_grid()
-  #grid = example_grid()
+  #grid = empty_grid()
+  grid = example_grid()
   #grid = load_grid(fname='ex2.txt')
 
   parent_node = {
@@ -322,16 +334,18 @@ if __name__ == "__main__":
   solved.
   """
   frame_no = 0
-  hyp = False #Just used to indicate if we are in a hypothesis branch for plotting
-  h_rows = []
-  h_cols = []
+  search_path = initial_flood_fill(grid)
+  path_step = 0
   grid_solved = True #We flip this if any one cell is not solved and check it at the end of each sweep
+  sweep = False
   grid_changed = False
-  grid, row, col, cell_changed, cell_solved, cell_invalid, sweep = solve_step(grid)
+  cell_invalid = False
   while not (sweep and grid_solved):
     c = 'y'
     if grid_changed: c = 'b'
     if cell_invalid: c = 'r'
+    row = search_path['rows'][path_step]
+    col = search_path['cols'][path_step]
     txt, H, Hh = update_grid_plot(grid=grid,
                               row=row,col=col,txt=txt,c=c,H=H,
                               current_node=current_node,Hh=Hh,
@@ -343,22 +357,23 @@ if __name__ == "__main__":
       if current_node is None: #No solution to this grid
         break
       grid, row, col = hypothesis(current_node)
-      hyp = True
+      search_path = flood_fill(row, col, grid[row][col][0])
+      path_step = 0
+      grid_solved = True
 
-    if sweep:
+    if sweep: #At the end of what we can do without branching
       sweep = False
+      current_node = branch(grid, current_node)
+      current_node = current_node['children'][0]
+      grid, row, col = hypothesis(current_node)
+      search_path = flood_fill(row, col, grid[row][col][0])
+      path_step = 0
       grid_solved = True #In preparation for another run
-      if not grid_changed: #At the end of what we can do without branching
-        current_node = branch(grid, current_node)
-        current_node = current_node['children'][0]
-        grid, row, col = hypothesis(current_node)
-        hyp = True
-      else:
-        grid_changed = False #Should go for another run
 
-    grid, row, col, cell_changed, cell_solved, cell_invalid, sweep = \
-      solve_step(grid, row, col)
-    if cell_changed: grid_changed = True
+    grid, path_step, search_path, cell_changed, cell_invalid, cell_solved, sweep =\
+      solve_step(grid, path_step, search_path)
+
+    #if cell_changed: grid_changed = True
     if not cell_solved: grid_solved = False
 
     time.sleep(.1)
