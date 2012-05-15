@@ -132,12 +132,23 @@ def eliminate_this(grid, row, col, value):
   return grid, changed, invalid, solved
 
 
-def flood_fill(row, col, value, search_path=None):
+def flood_fill(grid, row, col, value, search_path=[]):
   """If a cell has been filled in at row,col use this to add the cells to be
   checked."""
 
-  new_rows = []
-  new_cols = []
+  new_path = []
+
+  #Traverse the row
+  for c in xrange(9):
+    if c == col:
+      continue
+    new_path.append((row,c,value))
+
+  #Traverse the column
+  for r in xrange(9):
+    if r == row:
+      continue
+    new_path.append((r,col,value))
 
   #Knockout the 3x3 subgrid (minus rows and cols which we do below)
   r_start = (row/3)*3
@@ -147,53 +158,31 @@ def flood_fill(row, col, value, search_path=None):
   for r in rows:
     for c in cols:
       if r != row and c != col:
-        new_rows.append(r)
-        new_cols.append(c)
+        new_path.append((r,c,value))
 
-  #Traverse the row
-  for c in xrange(9):
-    if c == col:
-      continue
-    new_rows.append(row)
-    new_cols.append(c)
+  search_path += new_path
 
-  #Traverse the column
-  for r in xrange(9):
-    if r == row:
-      continue
-    new_rows.append(r)
-    new_cols.append(col)
+  new_search_path = []
+  for n in xrange(len(search_path)):
+    r,c,v = search_path[n]
+    if len(grid[r][c]) > 1:
+      new_search_path.append(search_path[n])
 
-  if search_path is None:
-    search_path =  {'rows': [],
-                    'cols': [],
-                    'values': []}
+  return new_search_path
 
-  search_path['rows'] += new_rows
-  search_path['cols'] += new_cols
-  search_path['values'] += [value]*len(new_cols)
-
-  return search_path
-
-def solve_step(grid, path_step=0, search_path=None):
-
-  row = search_path['rows'][path_step]
-  col = search_path['cols'][path_step]
-  value = search_path['values'][path_step]
-
+def solve_step(grid, search_path=None):
+  row,col,value = search_path.pop(0)
   grid, changed, invalid, solved = eliminate_this(grid, row, col, value)
   if changed:#We gotta add to the path (domino effect)
-    search_path = flood_fill(row, col, grid[row][col][0], search_path)
+    search_path = flood_fill(grid, row, col, grid[row][col][0], search_path)
     print 'Solved', row, col, '(', grid[row][col][0], ')'
 
-  path_step += 1
-  if path_step == len(search_path['rows']):
+  if len(search_path) == 0:
     sweep = True
-    path_step = 0
   else:
     sweep = False
 
-  return grid, path_step, search_path, changed, invalid, solved, sweep
+  return grid, row, col, search_path, changed, invalid, solved, sweep
 
 # Display ----------------------------------------------------------------------
 def plot_grid_background():
@@ -286,11 +275,11 @@ def update_grid_plot(grid, row=-1,col=-1,txt=None,
 # Utility functions
 def initial_flood_fill(grid):
   """Start us off by looking at the solved cells and then floodfilling from them."""
-  search_path = None
+  search_path = []
   for r in xrange(9):
     for c in xrange(9):
       if len(grid[r][c]) == 1:
-        search_path = flood_fill(r, c, grid[r][c][0], search_path)
+        search_path = flood_fill(grid, r, c, grid[r][c][0], search_path)
 
   return search_path
 
@@ -335,17 +324,15 @@ if __name__ == "__main__":
   """
   frame_no = 0
   search_path = initial_flood_fill(grid)
-  path_step = 0
   grid_solved = True #We flip this if any one cell is not solved and check it at the end of each sweep
   sweep = False
   grid_changed = False
   cell_invalid = False
+  row = col = 0
   while not (sweep and grid_solved):
     c = 'y'
     if grid_changed: c = 'b'
     if cell_invalid: c = 'r'
-    row = search_path['rows'][path_step]
-    col = search_path['cols'][path_step]
     txt, H, Hh = update_grid_plot(grid=grid,
                               row=row,col=col,txt=txt,c=c,H=H,
                               current_node=current_node,Hh=Hh,
@@ -357,7 +344,7 @@ if __name__ == "__main__":
       if current_node is None: #No solution to this grid
         break
       grid, row, col = hypothesis(current_node)
-      search_path = flood_fill(row, col, grid[row][col][0])
+      search_path = flood_fill(grid, row, col, grid[row][col][0])
       path_step = 0
       grid_solved = True
 
@@ -366,12 +353,12 @@ if __name__ == "__main__":
       current_node = branch(grid, current_node)
       current_node = current_node['children'][0]
       grid, row, col = hypothesis(current_node)
-      search_path = flood_fill(row, col, grid[row][col][0])
+      search_path = flood_fill(grid, row, col, grid[row][col][0])
       path_step = 0
       grid_solved = True #In preparation for another run
 
-    grid, path_step, search_path, cell_changed, cell_invalid, cell_solved, sweep =\
-      solve_step(grid, path_step, search_path)
+    grid, row, col, search_path, cell_changed, cell_invalid, cell_solved, sweep =\
+      solve_step(grid, search_path)
 
     #if cell_changed: grid_changed = True
     if not cell_solved: grid_solved = False
