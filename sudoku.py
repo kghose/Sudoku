@@ -14,12 +14,16 @@ the history because this looks nice visually.
 
 To create animation with good definition:
 
-ffmpeg  -i test%06d.png -vcodec libx264 -x264opts keyint=123:min-keyint=20 -an sudoku.mkv
+ffmpeg  -i frame%06d.png -vcodec libx264 -x264opts keyint=123:min-keyint=20 -an sudoku.mkv
+
+OR
+
+ffmpeg  -r 4 -qscale 2 -i frame%06d.png sudoku_simple.mp4
 
 
 """
-#import matplotlib
-#matplotlib.use("Agg")
+import matplotlib
+matplotlib.use("Agg")
 import copy, pylab, time
 
 # Initialization ---------------------------------------------------------------
@@ -44,7 +48,7 @@ def empty_grid():
 def load_grid(fname='ex1.txt'):
   grid = empty_grid()
   with open(fname,'r') as f:
-    str = f.read().replace('\n', '')
+    str = f.read().replace('\n', '').replace('-','').replace('|','').replace('+','').replace(' ','')
     for row in xrange(9):
       for col in xrange(9):
         n = row*9+col
@@ -150,29 +154,22 @@ def next_branch(current_node):
     parent = parent['parent']
   return node
 
-def flood_fill(row, col, path=[]):
-  """If a cell has been filled in at row,col use this to add the cells to be
-  checked nd then use a flood fill to add to the current path."""
+def advance_to_next_unsolved(grid, row, col):
+  def advance(row,col):
+    sweep = False
+    col += 1
+    if col > 8:
+      col = 0
+      row += 1
+    if row > 8: #Finished a sweep
+      row = 0
+      sweep = True
+    return row, col, sweep
 
-
-
-
-
-def solve_step(grid, row=0, col=0):
-  """
-  Start the solver with row=col=0, changed=False, solved=True
-  """
-  grid, changed, invalid, solved = reduce_cell(grid, row, col)
-  sweep = False
-  col += 1
-  if col > 8:
-    col = 0
-    row += 1
-  if row > 8: #Finished a sweep
-    row = 0
-    sweep = True
-
-  return grid, row, col, changed, solved, invalid, sweep
+  row, col, sweep = advance(row, col)
+  while len(grid[row][col]) == 1 and not sweep:
+    row, col, sweep = advance(row, col)
+  return row, col, sweep
 
 # Display ----------------------------------------------------------------------
 def plot_grid_background():
@@ -259,7 +256,7 @@ def update_grid_plot(grid, row=-1,col=-1,txt=None,
   pylab.draw()
   pylab.show()
   fname = "{bn}{fn:06d}.png".format(bn=base_name, fn=frame_no)
-  #pylab.savefig(fname)
+  pylab.savefig(fname)
   return txt, H, Hh
 
 
@@ -274,9 +271,16 @@ def hypothesis(current_node):
 
 if __name__ == "__main__":
 
-  grid = empty_grid()
+  #grid = empty_grid()
   #grid = example_grid()
-  #grid = load_grid(fname='ex2.txt')
+  #frame_path = '/tmp/sudoku/ex0/'
+  grid = load_grid(fname='ex2.txt')
+  frame_path = '/tmp/sudoku/ex2/'
+
+  import os
+  if not os.path.exists(frame_path):
+    os.makedirs(frame_path)
+  base_name = frame_path + 'frame'
 
   parent_node = {
     'grid': grid,
@@ -307,18 +311,32 @@ if __name__ == "__main__":
   hyp = False #Just used to indicate if we are in a hypothesis branch for plotting
   h_rows = []
   h_cols = []
+
   grid_solved = True #We flip this if any one cell is not solved and check it at the end of each sweep
   grid_changed = False
-  grid, row, col, cell_changed, cell_solved, cell_invalid, sweep = solve_step(grid)
-  while not (sweep and grid_solved):
+
+  row = 0
+  col = 0
+  sweep = False
+  grid_solved = False
+  while True:
+
+    grid, cell_changed, cell_invalid, cell_solved = reduce_cell(grid, row, col)
+    if cell_changed: grid_changed = True
+    if not cell_solved: grid_solved = False
+
     c = 'y'
     if grid_changed: c = 'b'
     if cell_invalid: c = 'r'
     txt, H, Hh = update_grid_plot(grid=grid,
                               row=row,col=col,txt=txt,c=c,H=H,
                               current_node=current_node,Hh=Hh,
-                              frame_no = frame_no) #Show our handiwork
+                              frame_no = frame_no,
+                              base_name = base_name) #Show our handiwork
     frame_no += 1
+
+    row, col, sweep = advance_to_next_unsolved(grid, row, col)
+    print row, col, sweep
 
     if cell_invalid:
       current_node = next_branch(current_node)
@@ -328,6 +346,9 @@ if __name__ == "__main__":
       hyp = True
 
     if sweep:
+      if grid_solved:
+        break
+
       sweep = False
       grid_solved = True #In preparation for another run
       if not grid_changed: #At the end of what we can do without branching
@@ -338,9 +359,4 @@ if __name__ == "__main__":
       else:
         grid_changed = False #Should go for another run
 
-    grid, row, col, cell_changed, cell_solved, cell_invalid, sweep = \
-      solve_step(grid, row, col)
-    if cell_changed: grid_changed = True
-    if not cell_solved: grid_solved = False
-
-    time.sleep(.1)
+#    time.sleep(.1)
