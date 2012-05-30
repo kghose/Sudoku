@@ -173,11 +173,19 @@ def show_grid(ax, grid, col = 'k', txt=None):
 
 def show_matrix(ax, R):
   M = pylab.zeros((R.size,9*9*4),dtype=int)
+  P = pylab.zeros((2,R.size*4),dtype=int)
   for ron,ro in enumerate(R):
     #81*r + 9*c + n = ro
     r = ro // 81
     c = (ro - 81 * r) // 9
     n = ro - 81*r - 9*c
+    y = ron
+    P[:,4*ron] = [9*r + c, y] #Cell constraint
+    P[:,4*ron+1] = [81 + 9*r + n, y] #Row constraint
+    P[:,4*ron+2] = [2*81 + 9*c + n, y] #Col constraint
+    b = (r // 3) * 3 + (c // 3) #Box no
+    P[:,4*ron+2] = [3*81 + 9*b + n, y]
+
     M[ron, 9*r + c] = 1 #Cell constraint
     M[ron, 81 + 9*r + n] = 1 #Row constraint
     M[ron, 2*81 + 9*c + n] = 1 #Col constraint
@@ -185,12 +193,21 @@ def show_matrix(ax, R):
     M[ron, 3*81 + 9*b + n] = 1
 
   pylab.axes(ax)
-  im = ax.get_images()
-  if len(im):
-    im[0].remove()
-  if M.size:
-    pylab.imshow(M, origin='upper',cmap=pylab.cm.gray)
+#  im = ax.get_images()
+#  if len(im):
+#    im[0].remove()
+#  if M.size:
+#    pylab.imshow(M, origin='upper',cmap=pylab.cm.gray)
 
+  lines = ax.get_lines()
+  for line in lines:
+    label = line.get_label()
+    if label == 'current mat' or label == 'current row line':
+      line.remove()
+
+  pylab.plot(P[0,:], P[1,:], 's', ms=3, mfc='gray',mec='gray')
+  pylab.plot(P[0,:], P[1,:], 'ks', ms=1, label='current mat')
+  pylab.plot([0, 4*81], [len(R), len(R)], 'k:', label='current row line')
 
 def show_algorithm_step(R,C,r,op='push'):
   global figure, erasable_numbers, chosenR, compute_step
@@ -208,7 +225,7 @@ def show_algorithm_step(R,C,r,op='push'):
   show_matrix(figure['constraint matrix'], AchosenR)
 
   pylab.draw()
-  #time.sleep(.1)
+  time.sleep(.01)
 
 
 if __name__ == "__main__":
@@ -233,7 +250,7 @@ if __name__ == "__main__":
 
   figure = setup_figure()
   plot_grid_background(figure)
-  grid = load_grid(fname='ex2.txt')
+  grid = load_grid(fname='ex1.txt')
   show_grid(figure['grid'], grid, col = 'k')
 
   M, R, C = constraint_matrix_from_grid(grid)
