@@ -111,10 +111,31 @@ def load_grid(fname='ex1.txt'):
   return grid
 
 # Display ----------------------------------------------------------------------
-def plot_grid_background():
-  fig = pylab.figure(figsize=(4,4))
+def setup_figure():
+  w = 5.
+  h = 6.
+  h1 = .25*w #81/324 - # max no of final constraint rows
+  h0 = h - h1
+  fig = pylab.figure(figsize=(w,h))
   fig.subplots_adjust(left=0.0,bottom=0.0,right=1.0,top=1.0,wspace=0.0,hspace=0.0)
-  ax = fig.add_subplot(111)
+  #ax = fig.add_subplot(111)
+  ax = fig.add_axes([0,0,1.,h0/h],label='grid')
+  ax_con = fig.add_axes([0,h0/h,1.,h1/h],label='constraint matrix')
+  ax_con.set_xlim([0, 324])
+  ax_con.set_ylim([0, 81])
+  ax_con.set_xticks([])
+  ax_con.set_yticks([])
+
+  figure = {
+    'fig': fig,
+    'grid': ax,
+    'constraint matrix': ax_con
+  }
+  return figure
+
+def plot_grid_background(figure):
+  ax = figure['grid']
+  pylab.axes(ax)
   ax.set_xlim([-.55,8.55])
   ax.set_ylim([-.55,8.55])
   ax.set_xticks([])
@@ -127,9 +148,8 @@ def plot_grid_background():
     pylab.plot([x,x], [-.5,8.5],'k',lw=4)
   for y in [-.5,2.5,5.5,8.5]:
     pylab.plot([-.5,8.5], [y,y],'k',lw=4)
-  return fig
 
-def show_grid(grid, col = 'k', txt=None):
+def show_grid(ax, grid, col = 'k', txt=None):
   """ax is obtained from plot_grid_background."""
   def show_cell(grid, r, c):
     txt = []
@@ -141,6 +161,7 @@ def show_grid(grid, col = 'k', txt=None):
 
     return txt
 
+  pylab.axes(ax)
   if txt is not None:
     for t in txt:
       t.remove()
@@ -150,19 +171,45 @@ def show_grid(grid, col = 'k', txt=None):
       txt += show_cell(grid, r, c)
   return txt
 
-def update_grid(R,C,r,op='push'):
-  global erasable_numbers, chosenR, compute_step
+def show_matrix(ax, R):
+  M = pylab.zeros((R.size,9*9*4),dtype=int)
+  for ron,ro in enumerate(R):
+    #81*r + 9*c + n = ro
+    r = ro // 81
+    c = (ro - 81 * r) // 9
+    n = ro - 81*r - 9*c
+    M[ron, 9*r + c] = 1 #Cell constraint
+    M[ron, 81 + 9*r + n] = 1 #Row constraint
+    M[ron, 2*81 + 9*c + n] = 1 #Col constraint
+    b = (r // 3) * 3 + (c // 3) #Box no
+    M[ron, 3*81 + 9*b + n] = 1
 
+  pylab.axes(ax)
+  im = ax.get_images()
+  if len(im):
+    im[0].remove()
+  if M.size:
+    pylab.imshow(M, origin='upper',cmap=pylab.cm.gray)
+
+
+def show_algorithm_step(R,C,r,op='push'):
+  global figure, erasable_numbers, chosenR, compute_step
   if op == 'push':
     chosenR.append(R[r])
     compute_step += 1
-  else:
+  elif len(chosenR):
     chosenR.pop()
 
-  grid = grid_from_constraint_matrix(pylab.array(chosenR))
-  erasable_numbers = show_grid(grid, col = 'b', txt = erasable_numbers)
+  AchosenR = pylab.array(chosenR)
+
+  grid = grid_from_constraint_matrix(AchosenR)
+  erasable_numbers = show_grid(figure['grid'], grid, col = 'b', txt = erasable_numbers)
+
+  show_matrix(figure['constraint matrix'], AchosenR)
+
   pylab.draw()
-  time.sleep(.1)
+  #time.sleep(.1)
+
 
 if __name__ == "__main__":
 #  C = pylab.array([1,2,3,4,5,6,7])
@@ -179,17 +226,19 @@ if __name__ == "__main__":
 #  sol = algorithmx(M,R,C)
 #  print sol
 
-  global erasable_numbers, chosenR, compute_step
+  global figure, erasable_numbers, chosenR, compute_step
   erasable_numbers = None
   chosenR = []
   compute_step = 0
 
-  plot_grid_background()
+  figure = setup_figure()
+  plot_grid_background(figure)
   grid = load_grid(fname='ex2.txt')
-  show_grid(grid, col = 'k')
+  show_grid(figure['grid'], grid, col = 'k')
 
   M, R, C = constraint_matrix_from_grid(grid)
-  sol = algorithmx(M,R,C,plotfun=update_grid)
+  sol = algorithmx(M,R,C,plotfun=show_algorithm_step)
+  #sol = algorithmx(M,R,C,plotfun=None)
   gridS = grid_from_constraint_matrix(sol)
   print grid + gridS
 
