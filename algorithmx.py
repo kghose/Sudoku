@@ -1,6 +1,16 @@
-import pylab, time
+"""
+To create animation with good definition:
+
+ffmpeg  -r 4 -qscale 2 -i frame%06d.png sudoku_simple.mp4
+"""
+
+import matplotlib
+matplotlib.use("Agg")
+
+import pylab, argparse
 
 def prt(R,C,r,op):
+  """A simple plotting function we can use for debugging."""
   print R.size,C.size
 
 def algorithmx(M,R,C, plotfun = prt):
@@ -118,8 +128,9 @@ def setup_figure():
   h0 = h - h1
   fig = pylab.figure(figsize=(w,h))
   fig.subplots_adjust(left=0.0,bottom=0.0,right=1.0,top=1.0,wspace=0.0,hspace=0.0)
-  #ax = fig.add_subplot(111)
+
   ax = fig.add_axes([0,0,1.,h0/h],label='grid')
+  plot_grid_background(ax)
   ax_con = fig.add_axes([0,h0/h,1.,h1/h],label='constraint matrix')
   ax_con.set_xlim([0, 324])
   ax_con.set_ylim([0, 81])
@@ -133,8 +144,7 @@ def setup_figure():
   }
   return figure
 
-def plot_grid_background(figure):
-  ax = figure['grid']
+def plot_grid_background(ax):
   pylab.axes(ax)
   ax.set_xlim([-.55,8.55])
   ax.set_ylim([-.55,8.55])
@@ -172,7 +182,6 @@ def show_grid(ax, grid, col = 'k', txt=None):
   return txt
 
 def show_matrix(ax, R):
-  M = pylab.zeros((R.size,9*9*4),dtype=int)
   P = pylab.zeros((2,R.size*4),dtype=int)
   for ron,ro in enumerate(R):
     #81*r + 9*c + n = ro
@@ -184,21 +193,9 @@ def show_matrix(ax, R):
     P[:,4*ron+1] = [81 + 9*r + n, y] #Row constraint
     P[:,4*ron+2] = [2*81 + 9*c + n, y] #Col constraint
     b = (r // 3) * 3 + (c // 3) #Box no
-    P[:,4*ron+2] = [3*81 + 9*b + n, y]
-
-    M[ron, 9*r + c] = 1 #Cell constraint
-    M[ron, 81 + 9*r + n] = 1 #Row constraint
-    M[ron, 2*81 + 9*c + n] = 1 #Col constraint
-    b = (r // 3) * 3 + (c // 3) #Box no
-    M[ron, 3*81 + 9*b + n] = 1
+    P[:,4*ron+3] = [3*81 + 9*b + n, y]
 
   pylab.axes(ax)
-#  im = ax.get_images()
-#  if len(im):
-#    im[0].remove()
-#  if M.size:
-#    pylab.imshow(M, origin='upper',cmap=pylab.cm.gray)
-
   lines = ax.get_lines()
   for line in lines:
     label = line.get_label()
@@ -210,13 +207,15 @@ def show_matrix(ax, R):
   pylab.plot([0, 4*81], [len(R), len(R)], 'k:', label='current row line')
 
 def show_algorithm_step(R,C,r,op='push'):
-  global figure, erasable_numbers, chosenR, compute_step
+  """This is the plotting function we plug into the algorithm to visualize it."""
+
+  global figure, erasable_numbers, chosenR, frame_no
   if op == 'push':
     chosenR.append(R[r])
-    compute_step += 1
   elif len(chosenR):
     chosenR.pop()
 
+  frame_no += 1
   AchosenR = pylab.array(chosenR)
 
   grid = grid_from_constraint_matrix(AchosenR)
@@ -225,32 +224,38 @@ def show_algorithm_step(R,C,r,op='push'):
   show_matrix(figure['constraint matrix'], AchosenR)
 
   pylab.draw()
-  time.sleep(.01)
+#  time.sleep(.01)
+  save_frame()
+
+def save_frame():
+  global base_name, frame_no
+
+  fname = "{bn}{fn:06d}.png".format(bn=base_name, fn=frame_no)
+  pylab.savefig(fname)
 
 
 if __name__ == "__main__":
-#  C = pylab.array([1,2,3,4,5,6,7])
-#  R = pylab.array([1,2,3,4,5,6])
-#
-#  M = pylab.array([
-#    [1,0,0,1,0,0,1],
-#    [1,0,0,1,0,0,0],
-#    [0,0,0,1,1,0,1],
-#    [0,0,1,0,1,1,0],
-#    [0,1,1,0,0,1,1],
-#    [0,1,0,0,0,0,1]
-#  ])
-#  sol = algorithmx(M,R,C)
-#  print sol
-
-  global figure, erasable_numbers, chosenR, compute_step
+  global figure, erasable_numbers, chosenR, frame_no, base_name
   erasable_numbers = None
   chosenR = []
-  compute_step = 0
+  frame_no = 0
+
+  parser = argparse.ArgumentParser(description='Graphical demonstration of AlgorithmX for Sudoku.')
+  parser.add_argument('filename')
+  args = parser.parse_args()
+
+  fname = args.filename + '.txt'
+  frame_path = '/tmp/sudoku/' + args.filename + '/'
+
+  grid = load_grid(fname=fname)
+  #frame_path = '/tmp/sudoku/ex2/'
+
+  import os
+  if not os.path.exists(frame_path):
+    os.makedirs(frame_path)
+  base_name = frame_path + 'frame'
 
   figure = setup_figure()
-  plot_grid_background(figure)
-  grid = load_grid(fname='ex1.txt')
   show_grid(figure['grid'], grid, col = 'k')
 
   M, R, C = constraint_matrix_from_grid(grid)
@@ -258,11 +263,3 @@ if __name__ == "__main__":
   #sol = algorithmx(M,R,C,plotfun=None)
   gridS = grid_from_constraint_matrix(sol)
   print grid + gridS
-
-#  sol = algorithmx(M,R,C)
-#  gridS = grid_from_constraint_matrix(sol)
-#  print grid
-
-#  M, R, C = full_sudoku_constraint_matrix()
-#  #sol = algorithmx(M,R,C)
-#  sol = [0,10]
