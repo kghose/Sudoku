@@ -7,7 +7,7 @@ ffmpeg  -r 4 -qscale 2 -i frame%06d.png sudoku_simple.mp4
 import matplotlib
 matplotlib.use("Agg")
 
-import pylab, argparse, time
+import pylab, argparse
 
 def algorithmx(M,R,C):
   """
@@ -39,6 +39,18 @@ def algorithmx(M,R,C):
   return sol,Su
 
 def algox_branch(M,R,C,r):
+  """
+  Matrix reduction logic for AlgroithmX
+  M - constraint matrix - rows are possibilities, columns are cell/row/col/box constraints
+  R - The identities of the rows left
+  C - The identities of the columns left
+  r - The row we are considering to add to the solution (and which needs to be removed)
+
+  Returns
+  newM - new constraint matrix with the required rows/columns taken out
+  newR - The new row identities
+  newC - The new col identities
+  """
 
   keep_c = []
   drop_c = []
@@ -112,6 +124,8 @@ def constraint_matrix_from_grid(grid):
   return M, R, C
 
 def load_grid(fname='ex1.txt'):
+  """Load a sudoku grid from a file containing one grid only.
+  The characters -,|,+ are ignored."""
   grid = pylab.zeros((9,9),dtype=int)
   with open(fname,'r') as f:
     str = f.read().replace('\n', '').replace('-','').replace('|','').replace('+','').replace(' ','')
@@ -124,6 +138,7 @@ def load_grid(fname='ex1.txt'):
   return grid
 
 
+# Display ----------------------------------------------------------------------
 def track_algorithm(Su, current_sol=[], Op=(0,0), Np=(0,0), plot_state=None):
   """Given a backtracking tree Su, containing constraint matrix row numbers
   and children visited during subtracking, reconstruct the search tree.
@@ -131,6 +146,10 @@ def track_algorithm(Su, current_sol=[], Op=(0,0), Np=(0,0), plot_state=None):
   current_sol - current solution vector of constraint matrix rows
   Op - coordinate of parent node of tree
   Np - coordinate of current node of tree.
+  plot_state - some data for keeping track of plotting
+
+  Returns
+  ny - y-coordinate of current nodes
   """
   #Handles
   HH = plot_state['handles']
@@ -171,7 +190,6 @@ def track_algorithm(Su, current_sol=[], Op=(0,0), Np=(0,0), plot_state=None):
 
   return ny
 
-# Display ----------------------------------------------------------------------
 def setup_figure():
   w = 8.
   h = 4.
