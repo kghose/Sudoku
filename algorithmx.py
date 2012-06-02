@@ -7,33 +7,36 @@ ffmpeg  -r 4 -qscale 2 -i frame%06d.png sudoku_simple.mp4
 import matplotlib
 matplotlib.use("Agg")
 
-import pylab, argparse
+import pylab, argparse, time
 
-def prt(R,C,r,op):
-  """A simple plotting function we can use for debugging."""
-  print R.size,C.size
+def algorithmx(M,R,C):
+  """
+  Recursive implementation of AlgroithmX
+  M - constraint matrix - rows are possibilities, columns are cell/row/col/box constraints
+  R - The identities of the rows left
+  C - The identities of the columns left
 
-def algorithmx(M,R,C, plotfun = prt):
-  """plotfunc is the function we use for plotting the progress of the algorithm."""
-  sol = None
+  Returns
+  sol - the solution rows
+  Su - the backtracking tree
+  """
+  sol = None #Collection of solution rows
+  Su = [] #Leaf
   if M.size:
     c = pylab.sum(M,axis=0).argmin()
     if pylab.sum(M[:,c]):
       for r in xrange(M.shape[0]):
         if M[r,c]:
           newM, newR, newC = algox_branch(M,R,C,r)
-          if plotfun:
-            plotfun(R,C,r,'push')
-          sol = algorithmx(newM, newR, newC, plotfun)
+          sol, S = algorithmx(newM, newR, newC)
+          Su.append([R[r], S]) #Visited children of this node
           if sol is not None:
             sol.append(R[r])
             break
-          elif plotfun:
-            plotfun(R,C,r,'pop')
   else:
     sol = [] #Leaf
 
-  return sol
+  return sol,Su
 
 def algox_branch(M,R,C,r):
 
@@ -120,29 +123,71 @@ def load_grid(fname='ex1.txt'):
 
   return grid
 
+
+def track_algorithm(Su, current_sol=[], Op=(0,0), Np=(0,0), plot_state=None):
+  """Given a backtracking tree Su, containing constraint matrix row numbers
+  and children visited during subtracking, reconstruct the search tree.
+  Su - subtree of search
+  current_sol - current solution vector of constraint matrix rows
+  Op - coordinate of parent node of tree
+  Np - coordinate of current node of tree.
+  """
+  #Handles
+  HH = plot_state['handles']
+  ax1 = HH['grid']
+  ax2 = HH['tree']
+  H_cp = HH.get('current position')
+  x_lim = HH.get('xlim',10)
+  H_er_no = HH.get('erasable numbers')
+
+  pylab.axes(ax2)
+  new_sol = list(current_sol)
+  new_sol.append(Su[0])
+  pylab.plot([Op[0], Np[0]],[Op[1], Np[1]],'o-',ms=2,color='gray',mfc='gray',mec='gray')
+
+  if H_cp is not None:
+    H_cp[0].remove()
+  HH['current position'] = pylab.plot(Np[0],Np[1],'ko',label='current position')
+
+  if Np[0]+10 > x_lim:
+    x_lim = HH['xlim'] = Np[0]+10
+  ax2.set_xlim([-10, x_lim])
+  ax2.set_ylim([-10, Np[1]+10])
+
+  grid = grid_from_constraint_matrix(new_sol)
+  HH['erasable numbers'] = show_grid(ax1, grid, col = 'b', txt=H_er_no)
+
+  pylab.draw()
+  time.sleep(.01)
+
+  nx = Np[0] + 5
+  ny = Np[1]
+  for n,ch in enumerate(Su[1]):
+    Cp = (nx,ny + 10*n)
+    ny = track_algorithm(ch, current_sol=new_sol, Op=Np, Np=Cp, plot_state=plot_state)
+
+  return ny
+
 # Display ----------------------------------------------------------------------
 def setup_figure():
-  w = 5.
-  h = 6.
-  h1 = .25*w #81/324 - # max no of final constraint rows
-  h0 = h - h1
+  w = 8.
+  h = 4.
   fig = pylab.figure(figsize=(w,h))
   fig.subplots_adjust(left=0.0,bottom=0.0,right=1.0,top=1.0,wspace=0.0,hspace=0.0)
 
-  ax = fig.add_axes([0,0,1.,h0/h],label='grid')
-  plot_grid_background(ax)
-  ax_con = fig.add_axes([0,h0/h,1.,h1/h],label='constraint matrix')
-  ax_con.set_xlim([0, 324])
-  ax_con.set_ylim([0, 81])
-  ax_con.set_xticks([])
-  ax_con.set_yticks([])
+  ax1 = fig.add_axes([0,0,.5,1],label='grid')
+  plot_grid_background(ax1)
 
-  figure = {
+  ax2 = fig.add_axes([.5,0,.5,1],label='tree')
+  ax2.set_xticks([])
+  ax2.set_yticks([])
+
+  handles = {
     'fig': fig,
-    'grid': ax,
-    'constraint matrix': ax_con
+    'grid': ax1,
+    'tree': ax2
   }
-  return figure
+  return handles
 
 def plot_grid_background(ax):
   pylab.axes(ax)
@@ -168,7 +213,6 @@ def show_grid(ax, grid, col = 'k', txt=None):
     x = c
     if cell:
       txt += [pylab.text(x,y, cell, fontsize=24, color=col, horizontalalignment='center', verticalalignment='center')]
-
     return txt
 
   pylab.axes(ax)
@@ -181,64 +225,11 @@ def show_grid(ax, grid, col = 'k', txt=None):
       txt += show_cell(grid, r, c)
   return txt
 
-def show_matrix(ax, R):
-  P = pylab.zeros((2,R.size*4),dtype=int)
-  for ron,ro in enumerate(R):
-    #81*r + 9*c + n = ro
-    r = ro // 81
-    c = (ro - 81 * r) // 9
-    n = ro - 81*r - 9*c
-    y = ron
-    P[:,4*ron] = [9*r + c, y] #Cell constraint
-    P[:,4*ron+1] = [81 + 9*r + n, y] #Row constraint
-    P[:,4*ron+2] = [2*81 + 9*c + n, y] #Col constraint
-    b = (r // 3) * 3 + (c // 3) #Box no
-    P[:,4*ron+3] = [3*81 + 9*b + n, y]
-
-  pylab.axes(ax)
-  lines = ax.get_lines()
-  for line in lines:
-    label = line.get_label()
-    if label == 'current mat' or label == 'current row line':
-      line.remove()
-
-  pylab.plot(P[0,:], P[1,:], 's', ms=3, mfc='gray',mec='gray')
-  pylab.plot(P[0,:], P[1,:], 'ks', ms=1, label='current mat')
-  pylab.plot([0, 4*81], [len(R), len(R)], 'k:', label='current row line')
-
-def show_algorithm_step(R,C,r,op='push'):
-  """This is the plotting function we plug into the algorithm to visualize it."""
-
-  global figure, erasable_numbers, chosenR, frame_no
-  if op == 'push':
-    chosenR.append(R[r])
-  elif len(chosenR):
-    chosenR.pop()
-
-  frame_no += 1
-  AchosenR = pylab.array(chosenR)
-
-  grid = grid_from_constraint_matrix(AchosenR)
-  erasable_numbers = show_grid(figure['grid'], grid, col = 'b', txt = erasable_numbers)
-
-  show_matrix(figure['constraint matrix'], AchosenR)
-
-  pylab.draw()
-#  time.sleep(.01)
-  save_frame()
-
-def save_frame():
-  global base_name, frame_no
-
+def save_frame(base_name, frame_no):
   fname = "{bn}{fn:06d}.png".format(bn=base_name, fn=frame_no)
   pylab.savefig(fname)
 
-
 if __name__ == "__main__":
-  global figure, erasable_numbers, chosenR, frame_no, base_name
-  erasable_numbers = None
-  chosenR = []
-  frame_no = 0
 
   parser = argparse.ArgumentParser(description='Graphical demonstration of AlgorithmX for Sudoku.')
   parser.add_argument('filename')
@@ -248,18 +239,23 @@ if __name__ == "__main__":
   frame_path = '/tmp/sudoku/' + args.filename + '/'
 
   grid = load_grid(fname=fname)
-  #frame_path = '/tmp/sudoku/ex2/'
 
   import os
   if not os.path.exists(frame_path):
     os.makedirs(frame_path)
   base_name = frame_path + 'frame'
 
-  figure = setup_figure()
-  show_grid(figure['grid'], grid, col = 'k')
-
   M, R, C = constraint_matrix_from_grid(grid)
-  sol = algorithmx(M,R,C,plotfun=show_algorithm_step)
-  #sol = algorithmx(M,R,C,plotfun=None)
+  sol, Su = algorithmx(M,R,C)
   gridS = grid_from_constraint_matrix(sol)
   print grid + gridS
+
+  handles = setup_figure()
+  show_grid(handles['grid'], grid, col = 'k')
+  frame_no = 0
+  save_frame(base_name, frame_no)
+  plot_state = {
+    'handles': handles,
+    'current position': None,
+    'frame no': frame_no}
+  track_algorithm(Su[0], plot_state=plot_state)
