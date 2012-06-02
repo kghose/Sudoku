@@ -158,7 +158,10 @@ def track_algorithm(Su, current_sol=[], Op=(0,0), Np=(0,0), plot_state=None):
   HH['erasable numbers'] = show_grid(ax1, grid, col = 'b', txt=H_er_no)
 
   pylab.draw()
-  time.sleep(.01)
+  base_name = plot_state['base name']
+  frame_no = plot_state['frame no']
+  save_frame(base_name, frame_no)
+  plot_state['frame no'] = frame_no + 1
 
   nx = Np[0] + 5
   ny = Np[1]
@@ -257,5 +260,6 @@ if __name__ == "__main__":
   plot_state = {
     'handles': handles,
     'current position': None,
+    'base name': base_name,
     'frame no': frame_no}
   track_algorithm(Su[0], plot_state=plot_state)
